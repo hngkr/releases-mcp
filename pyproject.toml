@@ -1,0 +1,12 @@
+[project]
+name = "releases-mcp"
+version = "0.1.0"
+description = "A simple MCP (Model Context Protocol) server that provides the current time"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "mcp>=1.0.0",
+    "uvicorn>=0.30.0",
+    "requests>=2.31.0",
+    "packaging>=23.0",
+]

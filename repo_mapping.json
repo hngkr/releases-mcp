@@ -1,0 +1,66 @@
+{
+  "nomad": {
+    "repo": "hashicorp/nomad",
+    "aliases": ["Nomad"]
+  },
+  "consul": {
+    "repo": "hashicorp/consul",
+    "aliases": ["Consul"]
+  },
+  "consul-template": {
+    "repo": "hashicorp/consul-template",
+    "aliases": ["Consul-template"]
+  },
+  "vault": {
+    "repo": "hashicorp/vault",
+    "aliases": ["Vault"]
+  },
+  "node-exporter": {
+    "repo": "prometheus/node_exporter",
+    "aliases": ["Node-exporter"]
+  },
+  "promtail": {
+    "repo": "grafana/loki",
+    "aliases": ["Promtail"]
+  },
+  "grafana": {
+    "repo": "grafana/grafana",
+    "aliases": ["Grafana"]
+  },
+  "cadvisor": {
+    "repo": "google/cadvisor",
+    "aliases": ["CAdvisor"]
+  },
+  "harbor": {
+    "repo": "goharbor/harbor",
+    "aliases": ["Harbor"]
+  },
+  "open-webui": {
+    "repo": "open-webui/open-webui",
+    "aliases": ["Open-Webui"]
+  },
+  "ollama": {
+    "repo": "ollama/ollama",
+    "aliases": ["Ollama"]
+  },
+  "opentelemetry-collector-contrib": {
+    "repo": "open-telemetry/opentelemetry-collector-contrib",
+    "aliases": ["Otel-collector"]
+  },
+  "litellm": {
+    "repo": "BerriAI/litellm",
+    "aliases": ["LiteLLM"]
+  },
+  "rabbitmq": {
+    "repo": "rabbitmq/rabbitmq-server",
+    "aliases": ["RabbitMQ"]
+  },
+  "countly": {
+    "repo": "Countly/countly-server",
+    "aliases": ["Countly"]
+  },
+  "caddy": {
+    "repo": "caddyserver/caddy",
+    "aliases": ["Caddy (Countly)"]
+  }
+}

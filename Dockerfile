@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.14-alpine
 
 WORKDIR /app
 
@@ -16,5 +16,5 @@ COPY server.py .
 
 EXPOSE 8000
 
-# Run with uv
-CMD ["uv", "run", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run directly with the synced environment, not uv run
+CMD [".venv/bin/uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug", "--proxy-headers", "--forwarded-allow-ips", "*"]

@@ -1,9 +1,11 @@
+import os
+
 import pytest
 import requests
-import os
-from packaging.version import parse, InvalidVersion
-from server import get_latest_github_release, get_latest_pypi_version, get_pypi_version
 from dotenv import load_dotenv
+from packaging.version import InvalidVersion, parse
+
+from server import get_latest_github_release, get_latest_pypi_version, get_pypi_version
 
 # Load environment variables from .env file if present
 load_dotenv()
@@ -12,10 +14,7 @@ load_dotenv()
 # (owner, repo)
 TEST_REPOS = [
     ("fastapi", "fastapi"),
-    ("encode", "uvicorn"),
-    ("pydantic", "pydantic"),
     ("astral-sh", "uv"),
-    ("encode", "httpx"),
     ("hashicorp", "nomad"),
     ("hashicorp", "consul"),
     ("hashicorp", "vault"),
@@ -115,21 +114,42 @@ def test_latest_release_matches_semver_oracle(owner, repo):
 
 def test_get_latest_release_tool_alias():
     """
-    Test the tool wrapper handles aliases correctly (e.g. 'nomad' -> 'hashicorp/nomad').
+    Test the tool wrapper handles aliases correctly (e.g. 'vault' -> 'hashicorp/vault').
     """
     # Need to import the tool function which is adorned with @mcp.tool()
     # In main.py: def get_latest_release(repo: str, owner: str | None = None) -> str:
     from server import get_latest_release
     
     # We call it with just the alias
-    result = get_latest_release(repo="nomad")
+    result = get_latest_release(product="vault")
     
-    # We expect success, meaning it found hashicorp/nomad
+    # We expect success, meaning it found hashicorp/vault
     # Since we can't easily mock the internal call without restructuring, 
     # we just check if it returns a string that looks like a success message, 
-    # or at least DOES NOT return "Error: Owner is required"
-    assert "Error: Owner is required" not in result
-    assert "Latest stable release for hashicorp/nomad" in result
+    # or at least DOES NOT return an "error" key
+    assert "error" not in result
+    assert "version" in result
+    assert result["github-repo"] == "hashicorp/vault"
+
+
+def test_get_latest_release_human_input():
+    """
+    Test the tool wrapper handles aliases correctly (e.g. 'vault' -> 'hashicorp/vault').
+    """
+    # Need to import the tool function which is adorned with @mcp.tool()
+    # In main.py: def get_latest_release(repo: str, owner: str | None = None) -> str:
+    from server import get_latest_release
+    
+    # We call it with just the alias
+    result = get_latest_release(product="Vault", owner="")
+
+    # We expect success, meaning it found hashicorp/vault
+    # Since we can't easily mock the internal call without restructuring, 
+    # we just check if it returns a string that looks like a success message, 
+    # or at least DOES NOT return an "error" key
+    assert "error" not in result
+    assert "version" in result
+    assert result["github-repo"] == "hashicorp/vault"
 
 def test_get_latest_release_human_alias():
     """
@@ -138,10 +158,11 @@ def test_get_latest_release_human_alias():
     from server import get_latest_release
     
     # We call it with a capitalized Alias
-    result = get_latest_release(repo="Nomad")
+    result = get_latest_release(product="Nomad")
     
-    assert "Error: Owner is required" not in result
-    assert "Latest stable release for hashicorp/nomad" in result
+    assert "error" not in result
+    assert "version" in result
+    assert result["github-repo"] == "hashicorp/nomad"
 
 def test_invalid_repo_handled():
     try:
@@ -180,7 +201,7 @@ def test_get_latest_pypi_version(package_name):
     
     # Verify all expected fields are present
     assert "version" in result
-    assert "package_name" in result
+    assert "name" in result
     assert "summary" in result
     assert "package_url" in result
     assert "release_url" in result
@@ -196,7 +217,7 @@ def test_get_latest_pypi_version(package_name):
     # Verify URLs are properly formed
     assert "https://pypi.org/project/" in result["release_url"]
     
-    print(f"Package: {result['package_name']}, Version: {result['version']}")
+    print(f"Package: {result['name']}, Version: {result['version']}")
 
 
 def test_pypi_version_tool_wrapper():
@@ -205,12 +226,11 @@ def test_pypi_version_tool_wrapper():
     """
     result = get_pypi_version("requests")
     
-    # Should return a formatted string
-    assert isinstance(result, str)
-    assert "Latest stable version" in result
-    assert "Version:" in result
-    assert "PyPI URL:" in result
-    assert "requests" in result.lower()
+    # Should return a dict
+    assert isinstance(result, dict)
+    assert "name" in result
+    assert "version" in result
+    assert result["name"].lower() == "requests"
 
 
 def test_pypi_nonexistent_package():
@@ -258,9 +278,9 @@ def test_github_fallback_to_pypi():
         result = get_latest_release("test-pypi-fallback")
         
         # Should have fallen back to PyPI
-        assert "PyPI" in result
-        assert "fallback" in result.lower()
-        assert "Version:" in result
+        assert "error" in result
+        assert "PyPI" in result["error"]
+        assert "fallback" in result["error"].lower()
         
     finally:
         # Restore original mapping

@@ -62,5 +62,9 @@
   "caddy": {
     "repo": "caddyserver/caddy",
     "aliases": ["Caddy (Countly)"]
+  },
+  "n8n": {
+    "repo": "n8n-io/n8n",
+    "aliases": ["n8n"]
   }
 }

@@ -2,7 +2,7 @@ import pytest
 import requests
 import os
 from packaging.version import parse, InvalidVersion
-from server import get_latest_github_release, is_stable_version
+from server import get_latest_github_release, get_latest_pypi_version, get_pypi_version
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if present
@@ -157,4 +157,113 @@ def test_invalid_repo_handled():
         if e.response.status_code == 403 and "rate limit" in str(e).lower():
             pytest.skip("GitHub API rate limit exceeded during invalid repo test")
         raise e
+
+
+# PyPI Tests
+
+PYPI_TEST_PACKAGES = [
+    "requests",
+    "fastapi", 
+    "django",
+    "flask",
+    "numpy",
+]
+
+@pytest.mark.parametrize("package_name", PYPI_TEST_PACKAGES)
+def test_get_latest_pypi_version(package_name):
+    """
+    Test that get_latest_pypi_version returns valid version information for known packages.
+    """
+    print(f"\nTesting PyPI package {package_name}...")
+    
+    result = get_latest_pypi_version(package_name)
+    
+    # Verify all expected fields are present
+    assert "version" in result
+    assert "package_name" in result
+    assert "summary" in result
+    assert "package_url" in result
+    assert "release_url" in result
+    
+    # Verify version is not empty and can be parsed
+    assert result["version"]
+    version = parse(result["version"])
+    
+    # Verify it's a stable version (not pre-release or dev)
+    assert not version.is_prerelease, f"Expected stable version, got pre-release: {result['version']}"
+    assert not version.is_devrelease, f"Expected stable version, got dev release: {result['version']}"
+    
+    # Verify URLs are properly formed
+    assert "https://pypi.org/project/" in result["release_url"]
+    
+    print(f"Package: {result['package_name']}, Version: {result['version']}")
+
+
+def test_pypi_version_tool_wrapper():
+    """
+    Test the get_pypi_version MCP tool wrapper returns formatted string.
+    """
+    result = get_pypi_version("requests")
+    
+    # Should return a formatted string
+    assert isinstance(result, str)
+    assert "Latest stable version" in result
+    assert "Version:" in result
+    assert "PyPI URL:" in result
+    assert "requests" in result.lower()
+
+
+def test_pypi_nonexistent_package():
+    """
+    Test that get_latest_pypi_version handles non-existent packages gracefully.
+    """
+    with pytest.raises(Exception) as exc_info:
+        get_latest_pypi_version("this-package-definitely-does-not-exist-12345")
+    
+    assert "not found" in str(exc_info.value).lower()
+
+
+def test_pypi_version_is_stable():
+    """
+    Test that PyPI function filters out pre-release versions correctly.
+    """
+    # Test with a well-known package that has stable releases
+    result = get_latest_pypi_version("requests")
+    version = parse(result["version"])
+    
+    # Should be a stable version
+    assert not version.is_prerelease
+    assert not version.is_devrelease
+    
+    # Version should be reasonable (major version >= 2 for requests as of 2026)
+    assert version.major >= 2
+
+
+def test_github_fallback_to_pypi():
+    """
+    Test that get_latest_release falls back to PyPI when GitHub fails and pypi_package is configured.
+    Note: This test requires adding a test entry to repo_mapping.json or mocking.
+    For now, we test the function behavior with a real package.
+    """
+    from server import get_latest_release, REPO_MAPPING
+    
+    # Temporarily add a test entry to REPO_MAPPING
+    original_mapping = REPO_MAPPING.copy()
+    REPO_MAPPING["test-pypi-fallback"] = {
+        "repo": "nonexistent-owner/nonexistent-repo",
+        "pypi_package": "requests"
+    }
+    
+    try:
+        result = get_latest_release("test-pypi-fallback")
+        
+        # Should have fallen back to PyPI
+        assert "PyPI" in result
+        assert "fallback" in result.lower()
+        assert "Version:" in result
+        
+    finally:
+        # Restore original mapping
+        REPO_MAPPING.clear()
+        REPO_MAPPING.update(original_mapping)
 

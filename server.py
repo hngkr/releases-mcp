@@ -6,16 +6,26 @@ import re
 from typing import Any
 
 import requests
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
+from fastmcp import FastMCP
 from packaging.version import InvalidVersion, parse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+from version import __version__
+
+# Configure logging - set root to INFO, only our module to DEBUG
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Reduce noise from FastMCP internals
+logging.getLogger("docket").setLevel(logging.WARNING)
+logging.getLogger("fakeredis").setLevel(logging.WARNING)
+logging.getLogger("mcp").setLevel(logging.INFO)
+
+# Print version on startup
+print(f"Starting releases-mcp server version {__version__}")
+logger.info(f"releases-mcp version {__version__}")
 
 # Load environment variables from .env file if present
 try:
@@ -33,7 +43,6 @@ mcp = FastMCP(
         and GitHub projects.
         Call get_latest_release() to get up-to-date release versions.
     """,
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 GITHUB_API_BASE = "https://api.github.com"
@@ -72,12 +81,19 @@ def get_latest_release(product: str, owner: str = "") -> dict:
         product: The name of the product (e.g., 'Nomad') or a Github repository name (e.g. 'fastapi')
         owner: The owner of the repository (e.g., 'fastapi'). Defaults to empty string if 'product' is a known alias.
     """
+    return _get_latest_release_impl(product, owner)
+
+
+def _get_latest_release_impl(product: str, owner: str = "") -> dict:
+    """
+    Internal implementation that returns a dict.
+    """
     # Store original repo for PyPI fallback lookup
     original_repo = product
 
     # 1. Resolve alias if owner is missing
     target_repo = product
-    if not owner:
+    if owner == "":
         # A. Check keys
         if product.lower() in REPO_MAPPING:
             entry = REPO_MAPPING[product.lower()]
@@ -88,7 +104,7 @@ def get_latest_release(product: str, owner: str = "") -> dict:
                 owner, target_repo = full_name.split("/", 1)
 
         # B. Check aliases (case-insensitive)
-        if not owner:
+        if owner == "":
             for _key, entry in REPO_MAPPING.items():
                 if isinstance(entry, dict):
                     aliases = [a.lower() for a in entry.get("aliases", [])]
@@ -102,7 +118,9 @@ def get_latest_release(product: str, owner: str = "") -> dict:
 
     # 2. Validation
     if not owner:
-        return f"Error: Owner is required for repository '{repo}'. Please specify the owner or add '{repo}' to repo_mapping.json."
+        return {
+            "error": f"Error: Owner is required for repository '{repo}'. Please specify the owner or add '{repo}' to repo_mapping.json."
+        }
 
     try:
         release_info = get_latest_github_release(owner, repo)
@@ -130,7 +148,7 @@ def get_latest_release(product: str, owner: str = "") -> dict:
                     "source": "pypi",
                     "version": pypi_info["version"],
                     "summary": pypi_info["summary"],
-                    "url": release_info["release_url"],
+                    "url": pypi_info["release_url"],
                 }
                 return content
             except Exception as pypi_error:
@@ -320,29 +338,10 @@ def get_latest_github_release(owner: str, repo: str) -> dict[str, Any]:
     raise Exception(f"No stable release found for {owner}/{repo}")
 
 
-@contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with mcp.session_manager.run():
-        yield
+# Create the FastAPI app from FastMCP
+app = mcp.http_app()
 
-
-app = FastAPI(lifespan=lifespan)
-
-# Get the MCP app and configure it to accept any host and CORS
-mcp_app = mcp.streamable_http_app()
-
-# CORS must be added first (outermost middleware) - configured for SSE
-mcp_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
-mcp_app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
-
-# Also add to the FastAPI app
+# Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -352,5 +351,3 @@ app.add_middleware(
     expose_headers=["*"],
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
-
-app.mount("/", mcp_app)

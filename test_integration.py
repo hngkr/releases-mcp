@@ -121,7 +121,7 @@ def test_get_latest_release_tool_alias():
     from server import get_latest_release
     
     # We call it with just the alias
-    result = get_latest_release(product="vault")
+    result = get_latest_release(product="nomad")
     
     # We expect success, meaning it found hashicorp/vault
     # Since we can't easily mock the internal call without restructuring, 
@@ -129,7 +129,7 @@ def test_get_latest_release_tool_alias():
     # or at least DOES NOT return an "error" key
     assert "error" not in result
     assert "version" in result
-    assert result["github-repo"] == "hashicorp/vault"
+    assert result["github-repo"] == "hashicorp/nomad"
 
 
 def test_get_latest_release_human_input():

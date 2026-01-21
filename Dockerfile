@@ -12,7 +12,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Copy application code
-COPY server.py .
+COPY server.py version.py repo_mapping.json .
 
 EXPOSE 8000
 
